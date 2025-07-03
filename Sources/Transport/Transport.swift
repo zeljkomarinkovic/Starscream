@@ -27,7 +27,7 @@ public enum ConnectionState {
     case connected
     
     /// Waiting connections have not yet been started, or do not have a viable network
-    case waiting
+    case waiting(Error?)
     
     /// Cancelled connections have been invalidated by the client and will send no more events
     case cancelled

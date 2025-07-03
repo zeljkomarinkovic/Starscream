@@ -122,7 +122,9 @@ FrameCollectorDelegate, HTTPHandlerDelegate {
             
             var isCompressed = false
             var sendData = data
-            if let compressedData = s.compressionHandler?.compress(data: data) {
+            let shouldCompress = opcode == .continueFrame || opcode == .textFrame || opcode == .binaryFrame
+            
+            if shouldCompress, let compressedData = s.compressionHandler?.compress(data: data) {
                 sendData = compressedData
                 isCompressed = true
             }
@@ -143,7 +145,12 @@ FrameCollectorDelegate, HTTPHandlerDelegate {
             let wsReq = HTTPWSHeader.createUpgrade(request: request, supportsCompression: framer.supportsCompression(), secKeyValue: secKeyValue)
             let data = httpHandler.convert(request: wsReq)
             transport.write(data: data, completion: {_ in })
-        case .waiting:
+        case .waiting(let error):
+            mutex.wait()
+            isConnecting = false
+            mutex.signal()
+
+            broadcast(event: .waiting(error))
             break
         case .failed(let error):
             handleError(error)
@@ -168,6 +175,10 @@ FrameCollectorDelegate, HTTPHandlerDelegate {
             
             broadcast(event: .cancelled)
         case .peerClosed:
+            mutex.wait()
+            isConnecting = false
+            mutex.signal()
+
             broadcast(event: .peerClosed)
         }
     }
